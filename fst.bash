@@ -1,0 +1,10 @@
+vcftools --weir-fst-pop AFR.supergroup --weir-fst-pop AMR.supergroup --vcf pvt1.recode.vcf --out AFR-AMR  --remove-indels
+vcftools --weir-fst-pop AFR.supergroup --weir-fst-pop EAS.supergroup --vcf pvt1.recode.vcf --out AFR-EAS  --remove-indels
+vcftools --weir-fst-pop AFR.supergroup --weir-fst-pop EUR.supergroup --vcf pvt1.recode.vcf --out AFR-EUR  --remove-indels
+vcftools --weir-fst-pop AFR.supergroup --weir-fst-pop SAS.supergroup --vcf pvt1.recode.vcf --out AFR-SAS  --remove-indels
+vcftools --weir-fst-pop AMR.supergroup --weir-fst-pop EAS.supergroup --vcf pvt1.recode.vcf --out AMR-EAS  --remove-indels
+vcftools --weir-fst-pop AMR.supergroup --weir-fst-pop EUR.supergroup --vcf pvt1.recode.vcf --out AMR-EUR  --remove-indels
+vcftools --weir-fst-pop AMR.supergroup --weir-fst-pop SAS.supergroup --vcf pvt1.recode.vcf --out AMR-SAS  --remove-indels
+vcftools --weir-fst-pop EAS.supergroup --weir-fst-pop EUR.supergroup --vcf pvt1.recode.vcf --out EAS-EUR  --remove-indels
+vcftools --weir-fst-pop EAS.supergroup --weir-fst-pop SAS.supergroup --vcf pvt1.recode.vcf --out EAS-SAS  --remove-indels
+vcftools --weir-fst-pop EUR.supergroup --weir-fst-pop SAS.supergroup --vcf pvt1.recode.vcf --out EUR-SAS  --remove-indels

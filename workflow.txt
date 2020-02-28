@@ -1,0 +1,209 @@
+#########################
+# Data sources
+#########################
+# 1k genome release 3: http://ftp.1000genomes.ebi.ac.uk/vol1/ftp/release/20130502/
+# TCGA: https://tcga-data.nci.nih.gov/tcga/tcgaAccessTiers.jsp
+# ICGC: https://dcc.icgc.org/releases/current/Projects
+# NCBI human genome resource: http://www.ncbi.nlm.nih.gov/projects/genome/guide/human/index.shtml
+# UCSC Genome Browser on Human Dec. 2013 (GRCh38/hg38) Assembly: https://genome.ucsc.edu/cgi-bin/hgTracks?db=hg38&position=chr8%3A127890628-128101253&hgsid=463479321_wvaH6Ru9ykrb7aFvXyx4ncUCIZ07. Search for PVT1 => chr8:127,890,628-128,101,253
+
+####################################
+# Extracting SNPs at PVT1 locus
+####################################
+#1. Filter by chromomesome & gene coordinates; save to a new vcf file
+vcftools --gzvcf ALL.chr8.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz --chr 8 --from-bp 127890628 --to-bp 128101253 --recode-INFO-all --recode --out pvt1 --remove-indels
+# output: => pvt1.recode.vcf
+
+#2. filter by individual
+grep -w CHB integrated_call_samples_v3.20130502.ALL.panel | cut -f1 > chb.txt
+vcftools --vcf pvt1.recode.vcf --keep chb.txt --recode --recode-INFO-all --out pvt1.chb
+# output: => pvt1.chb.recode.vcf
+
+#3. count
+vcftools --vcf pvt1.chb.recode.vcf --counts --out pvt1.chb
+# output: => pvt1.chb.frq.count
+
+#4. filter and count
+vcftools --vcf pvt1.recode.vcf --keep AFR.supergroup --counts --out afr
+=> afr.frq.count
+
+vcftools --vcf pvt1.recode.vcf --keep AMR.supergroup --counts --out amr
+=> amr.frq.count
+
+##########################
+# Fst analysis: by site
+##########################
+# 1. obtain supergroups groups:
+cut -f3 integrated_call_samples_v3.20130502.ALL.panel | sort | uniq | grep -v super | while read line; do grep -w $line integrated_call_samples_v3.20130502.ALL.panel | cut -f1 > ${line}.supergroup; done
+# output => five files: *.supergroup
+
+vcftools --weir-fst-pop AFR.supergroup --weir-fst-pop AMR.supergroup --vcf pvt1.recode.vcf --out afr-amr
+
+# 2. batch mode for all pairs of supergroups
+l *.supergroup | cut -f9 -d' ' > supergroup.txt
+perl fst.pl supergroup.txt > fst.bash
+bash fst.bash
+#output: => 10 fst files
+
+# prepare head
+ls -1 *.fst | cut -f1 -d'.' | paste -s -
+cat > total
+
+paste *.fst | cut -f2,3,6,9,12,15,18,21,24,27,30 | grep -v 'WEIR_AND_COCKERHAM_FST' | sed 's/-nan/na/g' >> total
+
+mv total total.fst
+
+# 3. Analyse with R (fst.R)
+
+# 4. two groups (AFR vs others)
+grep -w AFR integrated_call_samples_v3.20130502.ALL.panel | cut -f1 > AFR.supergroup
+grep -v -w AFR integrated_call_samples_v3.20130502.ALL.panel | cut -f1 | grep -v sample > notAFR.supergroup
+vcftools --weir-fst-pop AFR.supergroup --weir-fst-pop notAFR.supergroup --vcf pvt1.recode.vcf --out afr
+#output: => afr.weir.fst
+
+#cut -f2,3 afr.weir.fst | grep -v -w '\-nan' | grep -wv POS > afr-other.fst
+
+cat afr.weir.fst | perl -ne 'next unless /^8/; next if /nan/;  chomp; @data=split; print $data[1],"\n" if $data[2]>0.01' > afr.weir.fst2
+=> sig SNP position
+
+grep -f afr.weir.fst2 pvt1.recode.vcf | cut -f3 > afr.weir.fst3
+=> SNP rsID
+
+vcftools --vcf pvt1.recode.vcf --snps afr.weir.fst3 --recode-INFO-all --recode --out afr
+=> afr.recode.vcf
+
+##########################
+# Fst analysis: by windows
+##########################
+vcftools --vcf pvt1.recode.vcf --weir-fst-pop AFR.supergroup --weir-fst-pop notAFR.supergroup --fst-window-size 200 --fst-window-step 20 --out afr
+=> afr.windowed.weir.fst
+
+mv afr.windowed.weir.fst afr.windowed.weir-200-20.fst
+
+####################################
+# snp annotation using ANNOVAR:
+####################################
+# example:
+table_annovar.pl example/ex1.avinput humandb/ -buildver hg19 -out myanno -remove -protocol refGene,cytoBand,genomicSuperDups,esp6500siv2_all,1000g2014oct_all,1000g2014oct_afr,1000g2014oct_eas,1000g2014oct_eur,snp138,ljb26_all -operation g,r,r,f,f,f,f,f,f,f -nastring . -csvout
+
+../annovar/table_annovar.pl -vcfinput afr.recode.vcf ../annovar/humandb/ -buildver hg38 -out afr -protocol refGene -operation g -nastring .
+
+#../annovar/table_annovar.pl -vcfinput afr.recode.vcf ../annovar/humandb/ -buildver hg38 -out afr -protocol refGene,cytoBand -operation g,r -nastring .
+
+=> afr.hg38_multianno.txt & afr.hg38_multianno.vcf
+
+Analysis with R
+grep exonic afr.hg38_multianno.txt | cut -f2 > afr-other-exon.txt
+=> exonic SNPs
+
+#############################################
+# calculate nucleotide diversity (pi)
+#############################################
+(1) by windows:
+vcftools --vcf pvt1.recode.vcf --window-pi 200 --window-pi-step 20 --out pvt1
+=> pvt1.windowed.pi
+
+mv pvt1.windowed.pi pvt1.windowed-200-20.pi
+
+(2) by site:
+vcftools --vcf pvt1.recode.vcf --site-pi --out pvt1
+=> pvt1.sites.pi
+
+#####################################
+# hardy-weinberg analysis
+#####################################
+vcftools --vcf pvt1.recode.vcf --hardy --out pvt1
+=> pvt1.hwe
+
+########################################
+# Consolidated commands
+########################################
+PVT1: AFR vs non-AFR for website
+1. Filter by chromomesome & gene coordinates; save to a new vcf file
+vcftools --gzvcf ALL.chr8.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz --chr 8 --from-bp 127889628 --to-bp 128102253 --recode-INFO-all --recode --remove-indels --out pvt1-frank1000
+=> pvt1-frank1000.recode.vcf
+
+2. Calculate Fst
+1) by windows:
+grep -w AFR integrated_call_samples_v3.20130502.ALL.panel | cut -f1 > AFR.supergroup
+grep -v -w AFR integrated_call_samples_v3.20130502.ALL.panel | cut -f1 | grep -v sample > notAFR.supergroup
+
+vcftools --vcf pvt1-frank1000.recode.vcf --weir-fst-pop AFR.supergroup --weir-fst-pop notAFR.supergroup --fst-window-size 200 --fst-window-step 20 --out afr-frank1000
+=> afr-frank1000.windowed.weir.fst
+
+mv afr-frank1000.windowed.weir.fst afr-frank1000.window-200-20.fst
+
+2) by sites:
+vcftools --vcf pvt1.recode.vcf --weir-fst-pop AFR.supergroup --weir-fst-pop notAFR.supergroup --out afr
+=> afr.weir.fst
+
+3. calculate nucleotide diversity (pi)
+1) by windows
+vcftools --vcf pvt1-frank1000.recode.vcf --window-pi 200 --window-pi-step 20 --out pvt1-frank1000
+=> pvt1-frank1000.windowed.pi
+
+mv pvt1-frank1000.windowed.pi pvt1-frank1000.window-200-20.pi
+
+2) by sites:
+vcftools --vcf pvt1.recode.vcf --site-pi --out pvt1
+=> pvt1.sites.pi
+
+4. count
+vcftools --vcf pvt1.recode.vcf --keep AFR.supergroup --counts --out afr
+=> afr.frq.count
+
+vcftools --vcf pvt1.recode.vcf --keep notAFR.supergroup --counts --out non-afr
+=> non-afr.frq.count
+
+5. calculate overall Fst among supergroups
+(1) retrieve all supergroups:
+cut -f3 integrated_call_samples_v3.20130502.ALL.panel | sort | uniq | grep -v super | while read line; do grep -w $line integrated_call_samples_v3.20130502.ALL.panel | cut -f1 > ${line}.supergroup; done
+=> five files: *.supergroup
+
+(2) fst by sites
+vcftools --vcf pvt1.recode.vcf --weir-fst-pop AFR.supergroup --weir-fst-pop AMR.supergroup --weir-fst-pop EAS.supergroup --weir-fst-pop EUR.supergroup --weir-fst-pop SAS.supergroup --out total
+=> total.weir.fst
+
+(3) fst by windows
+vcftools --vcf pvt1-frank1000.recode.vcf --weir-fst-pop AFR.supergroup --weir-fst-pop AMR.supergroup --weir-fst-pop EAS.supergroup --weir-fst-pop EUR.supergroup --weir-fst-pop SAS.supergroup --fst-window-size 200 --fst-window-step 20 --out total-frank1000
+=> total-frank1000.windowed.weir.fst
+
+mv total-frank1000.windowed.weir.fst total-frank1000.window-200-20.fst
+
+6. combine fst-weir, pi-sites and count:
+cut -f5-7 afr.frq.count | tr '\t' ' ' > tmp1
+cut -f5-7 non-afr.frq.count | tr '\t' ' ' > tmp2
+paste afr.weir.fst pvt1.sites.pi total.weir.fst tmp1 tmp2 | cut -f2,3,6,9-11 | grep -vw nan | grep -vw POS > fst-pi-count
+
+paste afr-frank1000.window-200-20.fst pvt1-frank1000.window-200-20.pi total-frank1000.window-200-20.fst | cut -f2,6,11,17 | grep -vw BIN_START > path.txt
+
+7. add SNP id:
+cut -f1 fst-pi-count > tmp
+=> position list
+
+cut -f2,3 pvt1.recode.vcf | grep -v '#' | grep -f tmp -w | cut -f2 > id.txt
+
+paste fst-pi-count id.txt > dot.txt
+
+##############################
+# archaic haplotype analysis
+##############################
+
+# extract 75 SNPs from 127982050 to 127992893
+
+# extract genotype with bcftools
+bcftools query -l archaic.recode.vcf > archaic.samples
+cat archaic.samples | while read line; do echo ">$line"; bcftools query -s "$line" -f '[%TGT]' archaic.vcf; echo; done > archaic.fas2 
+
+# extract FASTA file with phased SNPs
+perl parse-vcf-to-fasta.pl archaic.snp > archaic.fas
+
+# combine same haplotypes
+perl combine-common-seq.pl archaic.fas
+
+# make tree with FastTree & plot tree with tree.R
+
+###################
+# End 2/28/2020
+###################
+
