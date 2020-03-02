@@ -170,6 +170,9 @@ vcftools --vcf pvt1-frank1000.recode.vcf --weir-fst-pop AFR.supergroup --weir-fs
 
 mv total-frank1000.windowed.weir.fst total-frank1000.window-200-20.fst
 
+(4) Tajima's D by windows
+vcftools --gzvcf pvt1.recode.vcf.gz  --TajimaD 100
+
 6. combine fst-weir, pi-sites and count:
 cut -f5-7 afr.frq.count | tr '\t' ' ' > tmp1
 cut -f5-7 non-afr.frq.count | tr '\t' ' ' > tmp2
