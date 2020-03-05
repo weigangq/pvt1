@@ -1,5 +1,5 @@
-AFR;#e74c3c
-AMR;#2ecc71
-EAS;#0000FF
-EUR;#039be5
-SAS;#FF00CC
+AFR;#ff0000
+AMR;#00cd00
+EAS;#0000ff
+EUR;#00ffff
+SAS;#ff00ff
