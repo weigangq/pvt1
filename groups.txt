@@ -1,0 +1,5 @@
+AFR;#ff0000
+AMR;#00cd00
+EAS;#0000ff
+EUR;#00ffff
+SAS;#ff00ff
