@@ -1,7 +1,40 @@
-sample <- read.table("sample.dat", header = T) # sample	pop	super_pop	gender		
-group99 = read.table("group.txt2", col.names=c("id","allale", "group")) # HG01767	1	g_1
-group99$super_pop = sample$super_pop[group99$id]
-group99$pop = sample$pop[group99$id]
+library(tidyverse)
+
+# count haplotypes in each supergroup
+# 3/13/2020
+sample <- read_tsv("sample.dat", col_names = T) # sample	pop	super_pop	gender		
+group99 <- read_tsv("group.txt2", col_names=c("id","allale", "group")) # HG01767	1	g_1
+
+group99 <- group99 %>% left_join(sample, c("id" = "sample")) 
+
+hap.ct <- group99 %>% group_by(group, super_pop) %>% count()
+
+hap.sum <- hap.ct %>% group_by(group) %>% summarise(sum=sum(n))
+hap.50 <- hap.sum %>% filter(sum>=50)
+hap.50 %>% ggplot(aes(x=reorder(group, sum), y=sum)) + geom_bar(stat = "identity") + coord_flip() + theme_bw() + xlab("haplotype") + ylab("total counts (out of 5008 chroms)") # "hap50"
+
+hap.ct2 <- hap.ct %>% left_join(hap.sum, "group")
+hap.ct2 <- hap.ct2 %>% mutate(freq = n/sum)
+hap.ct2 %>% ggplot(aes(x=sum)) + geom_histogram(bins =10) + scale_x_log10()
+
+# pick haps having at least 50 individuals:
+# hap.ct3 <- hap.ct2 %>% filter(sum >=100)
+# hap.ct.wide <- hap.ct3 %>% select(1,2,5) %>% spread(key = "super_pop", value = "freq", fill = 0)
+
+hap.ct3<- hap.ct2 %>% filter(group %in% hap.50$group) 
+hap.afr <- hap.ct3 %>% filter(super_pop == 'AFR') %>% arrange(freq)
+hap.ct3$group <- factor(hap.ct3$group, levels = hap.afr$group)
+hap.ct3 %>% ggplot(aes(x=group, y=freq, fill=super_pop)) +  geom_bar(stat = "identity", position = "stack") + coord_flip() + xlab("haplotype") + ylab("frequency") + theme_bw()
+
+# HWE test for g_62
+g62 <- c(rep("A/A", 19), rep("A/G", 180), rep("G/G", 462))
+g62.geno <- genotype(g62)
+HWE.test(g62.geno, ci.B = 1e5)
+################
+# END 3/13/2020
+################
+#group99$super_pop = sample$super_pop[group99$id]
+#group99$pop = sample$pop[group99$id]
 
 count.group = table(group99$group, group99$super_pop)
 count.group = as.data.frame.matrix(count.group)
