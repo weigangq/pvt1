@@ -1,4 +1,5 @@
-group99 = read.table("group.txt2", col.names=c("id","allale", "group"))
+sample <- read.table("sample.dat", header = T) # sample	pop	super_pop	gender		
+group99 = read.table("group.txt2", col.names=c("id","allale", "group")) # HG01767	1	g_1
 group99$super_pop = sample$super_pop[group99$id]
 group99$pop = sample$pop[group99$id]
 
