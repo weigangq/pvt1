@@ -29,7 +29,13 @@ hap.ct3 %>% ggplot(aes(x=group, y=freq, fill=super_pop)) +  geom_bar(stat = "ide
 # HWE test for g_62
 g62 <- c(rep("A/A", 19), rep("A/G", 180), rep("G/G", 462))
 g62.geno <- genotype(g62)
-HWE.test(g62.geno, ci.B = 1e5)
+HWE.test(g62.geno)
+
+# HWE test for g_30
+g30 <- c(rep("A/A", 12), rep("A/G", 571), rep("G/G", 1260))
+g30.geno <- genotype(g62)
+HWE.test(g30.geno)
+
 ################
 # END 3/13/2020
 ################
